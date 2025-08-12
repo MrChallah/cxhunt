@@ -33,8 +33,9 @@
     </style>
   </head>
   <body class="antialiased">
-    <div id="root" class="w-[var(--overlay-width)] font-inter">
-      <div class="flex items-center justify-start gap-10"
+    <!-- Anchored bottom-right, hugging content -->
+    <div id="root" class="font-inter fixed right-3 bottom-3 w-fit">
+      <div class="flex items-center justify-start gap-2">
         <!-- Left: rank + username (white with black outline) -->
         <div class="font-extrabold text-white text_black_outline_lg text-base md:text-xl tracking-wide">
           <span id="rank">#--</span>
@@ -67,6 +68,7 @@
         if (slug) fetchUrl = `${location.origin}/overlay/${encodeURIComponent(slug)}?format=json`;
       }
 
+      // width param kept for compatibility (unused now since w-fit); can still control font scale via CSS in OBS
       document.documentElement.style.setProperty("--overlay-width", widthPx + "px");
       document.documentElement.style.setProperty("--accent", "#" + color);
 
