@@ -18,8 +18,9 @@ CACHE_MS=2000
 npm i
 npm start
 ```
-Open http://localhost:3000/overlay/kangjoel
+Open http://localhost:3000/overlay/yourkickname
 
 ## OBS example
 
 `https://<your-railway-app>.up.railway.app/overlay/kangjoel?w=730&font=pixel&color=4fff00&live=1`
+
