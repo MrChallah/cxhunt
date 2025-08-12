@@ -26,6 +26,30 @@ app.get(["/", "/health"], (_req, res) => {
   res.type("text").send("ok");
 });
 
+async function fetchUpstreamJson(slug) {
+  const url = TEMPLATE.replace("{kick}", encodeURIComponent(slug));
+  const cached = getCache(url);
+  if (cached) return cached;
+  const r = await fetch(url, { headers: { "cache-control": "no-cache" } });
+  if (!r.ok) throw new Error(`Upstream ${r.status}`);
+  const data = await r.json();
+  setCache(url, data);
+  return data;
+}
+
+async function fetchKickChannel(slug) {
+  try {
+    const r = await fetch(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`, {
+      headers: { "cache-control": "no-cache" },
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j;
+  } catch {
+    return null;
+  }
+}
+
 // Main route: HTML or JSON based on ?format=json
 app.get("/overlay/:kick", async (req, res) => {
   const { kick } = req.params;
@@ -33,15 +57,14 @@ app.get("/overlay/:kick", async (req, res) => {
   // Serve JSON when requested
   if ((req.query.format || "").toString().toLowerCase() === "json") {
     try {
-      const url = TEMPLATE.replace("{kick}", encodeURIComponent(kick));
-      const cached = getCache(url);
-      if (cached) return res.json(cached);
+      const upstream = await fetchUpstreamJson(kick);
+      const slug = upstream?.kick_slug || kick;
+      const kickData = await fetchKickChannel(slug);
 
-      const r = await fetch(url, { headers: { "cache-control": "no-cache" } });
-      if (!r.ok) return res.status(r.status).json({ error: `Upstream ${r.status}` });
-      const data = await r.json();
-      setCache(url, data);
-      return res.json(data);
+      const avatar = kickData?.user?.profile_pic || null;
+      const is_live = Boolean(kickData?.livestream?.is_live);
+
+      return res.json({ ...upstream, avatar, is_live });
     } catch (e) {
       return res.status(502).json({ error: "Upstream failed", detail: String(e) });
     }

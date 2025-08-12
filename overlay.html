@@ -55,7 +55,6 @@
       const $ = (id) => document.getElementById(id);
       const qs = new URLSearchParams(location.search);
 
-      // Build slug from path: /overlay/:slug or any trailing segment
       function getSlugFromPath() {
         const parts = location.pathname.split('/').filter(Boolean);
         return parts[parts.length - 1] || '';
@@ -64,22 +63,21 @@
       let fetchUrl = qs.get("fetchUrl");
       const intervalMs = Number(qs.get("interval") || 5000);
       const widthPx = Number(qs.get("w") || 730);
-      const font = qs.get("font") || "inter";      // inter | boogaloo | pixel | raisin
+      const font = qs.get("font") || "inter";
       const color = (qs.get("color") || "4fff00").replace("#","");
-      const live = qs.get("live");                 // "1" to show Live pill
+      const liveParam = qs.get("live");
 
-      // If no fetchUrl provided, default to same-origin JSON endpoint
       if (!fetchUrl) {
         const slug = getSlugFromPath();
         if (slug) fetchUrl = `${location.origin}/overlay/${encodeURIComponent(slug)}?format=json`;
       }
 
       const staticDefaults = {
-        username: qs.get("name") || "kangjoel",
+        username: qs.get("name") || getSlugFromPath() || "username",
         leaderboard_ranking: qs.get("rank") || "--",
         rfids_scanned: qs.get("rfids") || "0",
         points: qs.get("points") || "0",
-        kick_slug: qs.get("kick") || qs.get("name") || getSlugFromPath() || "kangjoel",
+        kick_slug: qs.get("kick") || qs.get("name") || getSlugFromPath() || "",
         avatar: qs.get("avatar")
       };
 
@@ -88,7 +86,12 @@
       const root = document.getElementById("root");
       root.classList.remove("font-inter","font-boogaloo","font-pixel","font-raisin");
       root.classList.add("font-" + (["inter","boogaloo","pixel","raisin"].includes(font) ? font : "inter"));
-      if (live === "1") $("pill").classList.remove("hidden");
+
+      function setLive(isLive) {
+        if (liveParam === "1") return $("pill").classList.remove("hidden");
+        if (liveParam === "0") return $("pill").classList.add("hidden");
+        if (isLive) $("pill").classList.remove("hidden"); else $("pill").classList.add("hidden");
+      }
 
       function render(data) {
         const name = data?.username ?? staticDefaults.username;
@@ -96,22 +99,23 @@
         const rfids = data?.rfids_scanned ?? staticDefaults.rfids_scanned;
         const points = data?.points ?? staticDefaults.points;
         const slug = data?.kick_slug ?? staticDefaults.kick_slug;
-        const avatarUrl = staticDefaults.avatar || "https://kick.com/img/default-profile-pictures/default2.jpeg";
+        const avatarUrl = data?.avatar || staticDefaults.avatar || "https://kick.com/img/default-profile-pictures/default2.jpeg";
 
         $("name").textContent = name;
         $("rank").textContent = "#" + rank;
         $("rfids").textContent = rfids;
         $("points").textContent = points;
-        $("profileLink").href = "https://kick.com/" + slug;
+        $("profileLink").href = slug ? ("https://kick.com/" + slug) : "#";
         $("avatar").src = avatarUrl;
         $("avatar").alt = name + " avatar";
+        setLive(Boolean(data?.is_live));
       }
 
       render(staticDefaults);
 
       async function poll() {
         try {
-          if (!fetchUrl) return; // nothing to poll
+          if (!fetchUrl) return;
           const res = await fetch(fetchUrl, { cache: "no-store" });
           const json = await res.json();
           render(json);
