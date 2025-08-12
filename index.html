@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Custom Overlay</title>
+
+    <!-- Transparent background for OBS/browser sources -->
+    <style>
+      :root {
+        --accent: #4fff00;        /* Kick green default */
+        --overlay-width: 730px;   /* matches your screenshot width */
+      }
+      html, body { background: transparent; }
+    </style>
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts for options: inter | boogaloo | pixel | raisin -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Boogaloo&family=Press+Start+2P&family=Raleway:wght@500;700;900&display=swap" rel="stylesheet" />
+    <style>
+      .font-inter    { font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; }
+      .font-boogaloo { font-family: "Boogaloo", cursive; }
+      .font-pixel    { font-family: "Press Start 2P", monospace; letter-spacing: 0.5px; }
+      .font-raisin   { font-family: "Raleway", system-ui, sans-serif; }
+
+      /* tiny pulse dot inside the Live pill */
+      .dot { position: relative; display: inline-block; width: 10px; height: 10px; border-radius: 9999px; background: var(--accent); }
+      .dot::after { content:""; position:absolute; inset:-6px; border-radius:9999px; background: var(--accent); opacity:0.35; animation: ping 1.25s cubic-bezier(0,0,0.2,1) infinite; }
+      @keyframes ping { 75%,100% { transform: scale(2); opacity: 0; } }
+    </style>
+  </head>
+
+  <body class="antialiased">
+    <div id="root" class="w-[var(--overlay-width)] font-inter text-white">
+      <!-- Card -->
+      <div class="relative overflow-hidden rounded-xl bg-neutral-900/40 backdrop-blur-md ring-1 ring-white/10 shadow-[0_0_16px_rgba(255,255,255,0.06)]">
+        <!-- Accent stripe -->
+        <div class="absolute inset-y-0 left-0 w-1.5 bg-[var(--accent)]/90"></div>
+
+        <div class="flex items-center justify-between p-4 gap-4">
+          <div class="flex flex-col items-start gap-1">
+            <div class="flex flex-row items-center gap-2 flex-wrap">
+              <a id="profileLink" href="#" target="_blank" rel="noopener" class="font-bold text-base md:text-xl pr-1 truncate underline decoration-1 underline-offset-2 text-blue-300 flex items-center">
+                <img id="avatar" src="" alt="" class="inline-block mr-3 rounded-full w-4 h-4 md:w-8 md:h-8 object-cover" />
+                <span id="rank" class="tracking-wider mr-1">#35</span>
+                <span id="name">kangjoel</span>
+              </a>
+
+              <!-- Live/Offline pill -->
+              <span id="statusPill" class="ml-4 inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs md:text-sm font-extrabold bg-black/50 ring-1 ring-white/10">
+                <span class="dot"></span>
+                <span id="statusText" class="uppercase">Live</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="flex flex-col text-sm md:text-base font-semibold text-gray-200 pr-1 leading-[25px] text-right">
+            <p><span id="rfids">26</span> RFIDs</p>
+            <p><span id="points">1964</span> points</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+
+      // Read params (static mode)
+      const defaults = {
+        name: "kangjoel",
+        rank: "35",
+        status: "live", // live | offline
+        rfids: "26",
+        points: "1964",
+        avatar: "https://files.iceposeidon.com/kick/avatars/4003953.thumb.webp",
+        kick: "https://kick.com/kangjoel",
+        color: "4fff00",  // accent (hex without #)
+        w: "730",         // width in px
+        font: "inter",    // inter | boogaloo | pixel | raisin
+      };
+
+      function getParam(key) {
+        return params.get(key) ?? defaults[key];
+      }
+
+      function setAccent(hex) {
+        document.documentElement.style.setProperty("--accent", `#${hex}`);
+      }
+
+      function setWidth(px) {
+        document.documentElement.style.setProperty("--overlay-width", `${Number(px)}px`);
+      }
+
+      function setFont(fontKey) {
+        const root = document.getElementById("root");
+        root.classList.remove("font-inter","font-boogaloo","font-pixel","font-raisin");
+        root.classList.add(`font-${["inter","boogaloo","pixel","raisin"].includes(fontKey)?fontKey:"inter"}`);
+      }
+
+      function setStatus(status) {
+        const isLive = String(status).toLowerCase() === "live";
+        $("statusText").textContent = isLive ? "Live" : "Offline";
+        $("statusPill").className =
+          "ml-4 inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs md:text-sm font-extrabold ring-1 " +
+          (isLive
+            ? "bg-emerald-500/10 text-[color:var(--accent)] ring-[color:var(--accent)]/30"
+            : "bg-neutral-700/30 text-gray-400 italic ring-white/10");
+        // dot color matches accent
+        document.querySelector(".dot").style.background = isLive ? "var(--accent)" : "#9ca3af";
+      }
+
+      function setData({name, rank, status, rfids, points, avatar, kick}) {
+        $("name").textContent = name;
+        $("rank").textContent = `#${rank}`;
+        $("rfids").textContent = rfids;
+        $("points").textContent = points;
+        $("avatar").src = avatar;
+        $("avatar").alt = `${name} avatar`;
+        $("profileLink").href = kick;
+        setStatus(status);
+      }
+
+      // Initial render from query params
+      setAccent(getParam("color"));
+      setWidth(getParam("w"));
+      setFont(getParam("font"));
+      setData({
+        name: getParam("name"),
+        rank: getParam("rank"),
+        status: getParam("status"),
+        rfids: getParam("rfids"),
+        points: getParam("points"),
+        avatar: getParam("avatar"),
+        kick: getParam("kick"),
+      });
+
+      // Optional: live polling mode (provide ?fetchUrl=...&interval=5000)
+      const fetchUrl = params.get("fetchUrl");
+      const intervalMs = Number(params.get("interval") || 5000);
+      async function poll() {
+        try {
+          const res = await fetch(fetchUrl, { cache: "no-store" });
+          const j = await res.json();
+          // Expected JSON shape:
+          // { name, rank, status, rfids, points, avatar, kick }
+          setData(j);
+        } catch (e) {
+          // swallow errors for overlays
+        } finally {
+          setTimeout(poll, intervalMs);
+        }
+      }
+      if (fetchUrl) poll();
+    </script>
+  </body>
+</html>
