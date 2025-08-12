@@ -99,6 +99,22 @@ function findLeaderboardRow(leaderboard, { username, kick_slug }) {
   return { idx, row: leaderboard[idx] };
 }
 
+// Compute rank strictly by matching the points value (descending order)
+function computeRankByPoints(leaderboard, points) {
+  if (points == null) return null;
+  const want = Number(points);
+  if (!Number.isFinite(want)) return null;
+  // sort by points desc; if points field name differs, normalize
+  const rows = leaderboard
+    .map((r, i) => ({ i, row: r, pts: Number(r?.points) }))
+    .filter((r) => Number.isFinite(r.pts))
+    .sort((a, b) => b.pts - a.pts);
+  const match = rows.find((r) => r.pts === want);
+  if (!match) return null;
+  // rank is index in the sorted list + 1
+  return { idx: rows.indexOf(match), row: match.row };
+}
+
 // Main route: HTML or JSON based on ?format=json
 app.get("/overlay/:kick", async (req, res) => {
   const { kick } = req.params;
@@ -118,15 +134,19 @@ app.get("/overlay/:kick", async (req, res) => {
       let corrected = { ...upstream };
       try {
         const leaderboard = await fetchLeaderboard();
-        const match = findLeaderboardRow(leaderboard, {
-          username: upstream?.username,
-          kick_slug: upstream?.kick_slug,
-        });
+        // First, match by points strictly (requested behavior)
+        let match = computeRankByPoints(leaderboard, upstream?.points);
+        // Fallback: try to match by username/slug if points not found
+        if (!match) {
+          match = findLeaderboardRow(leaderboard, {
+            username: upstream?.username,
+            kick_slug: upstream?.kick_slug,
+          });
+        }
         if (match) {
           const { idx, row } = match; // idx is zero-based
           corrected.leaderboard_ranking = idx + 1;
           if (row?.points != null) corrected.points = row.points;
-          // Accept multiple field names used by the event for RFID count
           if (row?.rfids_scanned != null) corrected.rfids_scanned = row.rfids_scanned;
           else if (row?.rfids != null) corrected.rfids_scanned = row.rfids;
         }
