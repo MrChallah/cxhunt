@@ -64,7 +64,35 @@ app.get("/overlay/:kick", async (req, res) => {
       const avatar = kickData?.user?.profile_pic || null;
       const is_live = Boolean(kickData?.livestream?.is_live);
 
-      return res.json({ ...upstream, avatar, is_live });
+      // Prefer the most accurate/display-ready rank key exposed by upstream
+      const rankCandidates = [
+        upstream?.display_rank,
+        upstream?.leaderboard_ranking_live,
+        upstream?.leaderboard_position,
+        upstream?.leaderboard_ranking,
+        upstream?.rank,
+        upstream?.position,
+      ].filter((v) => v !== undefined && v !== null && v !== "");
+      const display_rank = rankCandidates.length ? rankCandidates[0] : undefined;
+
+      // Normalize a few common field names for clients
+      const rfids_candidates = [
+        upstream?.rfids_scanned,
+        upstream?.rfids,
+        upstream?.rfid_count,
+      ].filter((v) => v !== undefined && v !== null && v !== "");
+      const rfids_scanned = rfids_candidates.length ? rfids_candidates[0] : undefined;
+
+      const username = upstream?.username || upstream?.name || upstream?.kick_slug || kick;
+
+      return res.json({
+        ...upstream,
+        username,
+        rfids_scanned,
+        display_rank,
+        avatar,
+        is_live,
+      });
     } catch (e) {
       return res.status(502).json({ error: "Upstream failed", detail: String(e) });
     }
