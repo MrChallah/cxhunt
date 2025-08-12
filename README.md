@@ -21,8 +21,9 @@ npm start
 ```
 Open http://localhost:3000/overlay/yourkickname
 
+## License
+Free to use under the MIT license - see the [LICENSE](./LICENSE) file for details.
+
 ## OBS example
 
 `https://<your-railway-app>.up.railway.app/overlay/kangjoel?w=730&font=pixel&color=4fff00&live=1`
-
-
