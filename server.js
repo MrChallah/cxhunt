@@ -21,6 +21,16 @@ function getCache(key) {
 }
 function setCache(key, v) { cache.set(key, { v, t: Date.now() }); }
 
+async function fetchJson(url, opts = {}) {
+  const cached = getCache(url);
+  if (cached) return cached;
+  const r = await fetch(url, { headers: { "cache-control": "no-cache" }, ...opts });
+  if (!r.ok) throw new Error(`${url} -> ${r.status}`);
+  const j = await r.json();
+  setCache(url, j);
+  return j;
+}
+
 // Health
 app.get(["/", "/health"], (_req, res) => {
   res.type("text").send("ok");
@@ -50,6 +60,45 @@ async function fetchKickChannel(slug) {
   }
 }
 
+// Fetch the authoritative leaderboard the event site uses and return an array of entries
+// We try viewerapi first, then api as a fallback
+async function fetchLeaderboard() {
+  const urls = [
+    "https://viewerapi.iceposeidon.com/viewer.leaderboard",
+    "https://api.iceposeidon.com/viewer/leaderboard",
+  ];
+  for (const url of urls) {
+    try {
+      const data = await fetchJson(url);
+      if (Array.isArray(data) && data.length) return data;
+    } catch {
+      // try next url
+    }
+  }
+  return [];
+}
+
+function normalizeString(v) {
+  return (v || "").toString().trim().toLowerCase();
+}
+
+// Try to find a leaderboard row for a given user
+function findLeaderboardRow(leaderboard, { username, kick_slug }) {
+  const name = normalizeString(username);
+  const slug = normalizeString(kick_slug || username);
+  let idx = leaderboard.findIndex((row) => {
+    const rUser = normalizeString(row?.username);
+    const rSlug = normalizeString(row?.slug || row?.kick_slug || row?.username);
+    return rUser === name || rSlug === slug;
+  });
+  if (idx === -1) {
+    // loose contains as last resort
+    idx = leaderboard.findIndex((row) => normalizeString(row?.username) === name);
+  }
+  if (idx === -1) return null;
+  return { idx, row: leaderboard[idx] };
+}
+
 // Main route: HTML or JSON based on ?format=json
 app.get("/overlay/:kick", async (req, res) => {
   const { kick } = req.params;
@@ -61,38 +110,31 @@ app.get("/overlay/:kick", async (req, res) => {
       const slug = upstream?.kick_slug || kick;
       const kickData = await fetchKickChannel(slug);
 
+      // Derive avatar + live from Kick
       const avatar = kickData?.user?.profile_pic || null;
       const is_live = Boolean(kickData?.livestream?.is_live);
 
-      // Prefer the most accurate/display-ready rank key exposed by upstream
-      const rankCandidates = [
-        upstream?.display_rank,
-        upstream?.leaderboard_ranking_live,
-        upstream?.leaderboard_position,
-        upstream?.leaderboard_ranking,
-        upstream?.rank,
-        upstream?.position,
-      ].filter((v) => v !== undefined && v !== null && v !== "");
-      const display_rank = rankCandidates.length ? rankCandidates[0] : undefined;
+      // Correct the rank (and optionally stats) using the authoritative leaderboard
+      let corrected = { ...upstream };
+      try {
+        const leaderboard = await fetchLeaderboard();
+        const match = findLeaderboardRow(leaderboard, {
+          username: upstream?.username,
+          kick_slug: upstream?.kick_slug,
+        });
+        if (match) {
+          const { idx, row } = match; // idx is zero-based
+          corrected.leaderboard_ranking = idx + 1;
+          if (row?.points != null) corrected.points = row.points;
+          // Accept multiple field names used by the event for RFID count
+          if (row?.rfids_scanned != null) corrected.rfids_scanned = row.rfids_scanned;
+          else if (row?.rfids != null) corrected.rfids_scanned = row.rfids;
+        }
+      } catch {
+        // ignore leaderboard correction errors; fall back to upstream
+      }
 
-      // Normalize a few common field names for clients
-      const rfids_candidates = [
-        upstream?.rfids_scanned,
-        upstream?.rfids,
-        upstream?.rfid_count,
-      ].filter((v) => v !== undefined && v !== null && v !== "");
-      const rfids_scanned = rfids_candidates.length ? rfids_candidates[0] : undefined;
-
-      const username = upstream?.username || upstream?.name || upstream?.kick_slug || kick;
-
-      return res.json({
-        ...upstream,
-        username,
-        rfids_scanned,
-        display_rank,
-        avatar,
-        is_live,
-      });
+      return res.json({ ...corrected, avatar, is_live });
     } catch (e) {
       return res.status(502).json({ error: "Upstream failed", detail: String(e) });
     }

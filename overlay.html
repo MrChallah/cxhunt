@@ -80,26 +80,11 @@
         kick_slug: qs.get("kick") || qs.get("name") || getSlugFromPath() || ""
       };
 
-      function coalesce(...vals) {
-        for (const v of vals) {
-          if (v !== undefined && v !== null && v !== "") return v;
-        }
-        return undefined;
-      }
-
       function render(data) {
-        const name = coalesce(data?.username, data?.name, data?.kick_slug, staticDefaults.username);
-        const rank = coalesce(
-          data?.display_rank,
-          data?.leaderboard_ranking_live,
-          data?.leaderboard_position,
-          data?.leaderboard_ranking,
-          data?.rank,
-          data?.position,
-          staticDefaults.leaderboard_ranking
-        );
-        const rfids = coalesce(data?.rfids_scanned, data?.rfids, data?.rfid_count, staticDefaults.rfids_scanned);
-        const points = coalesce(data?.points, data?.score, staticDefaults.points);
+        const name = data?.username ?? staticDefaults.username;
+        const rank = data?.leaderboard_ranking ?? staticDefaults.leaderboard_ranking;
+        const rfids = data?.rfids_scanned ?? staticDefaults.rfids_scanned;
+        const points = data?.points ?? staticDefaults.points;
 
         $("name").textContent = name;
         $("rank").textContent = "#" + rank;
