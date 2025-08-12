@@ -1,6 +1,6 @@
 # CX Hunt Overlay (Temporary)
 
-Transparent Tailwind overlay served directly from Railway.
+Transparent Tailwind, CX in the Chat Dude
 
 ## Endpoints
 - `GET /overlay/:kick` → Overlay HTML (transparent, glass UI)
@@ -21,4 +21,5 @@ npm start
 Open http://localhost:3000/overlay/kangjoel
 
 ## OBS example
+
 `https://<your-railway-app>.up.railway.app/overlay/kangjoel?w=730&font=pixel&color=4fff00&live=1`
