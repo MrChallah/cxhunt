@@ -1,7 +1,7 @@
 {
-  "name": "overlay-proxy",
-  "type": "module",
+  "name": "cxhunt-overlay",
   "private": true,
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
