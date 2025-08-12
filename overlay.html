@@ -7,46 +7,43 @@
 
     <style>
       :root {
-        --accent: #4fff00;      /* default Kick green */
+        --accent: #4fff00;      /* Kick green */
         --overlay-width: 730px; /* tweak via ?w= */
       }
       html, body { background: transparent; }
+      /* Black outline effect for readability on any background */
+      .text_black_outline_lg {
+        text-shadow:
+          2px 0 #000,
+          -2px 0 #000,
+          0 2px #000,
+          0 -2px #000,
+          1.5px 1.5px 0 #000,
+          -1.5px 1.5px 0 #000,
+          1.5px -1.5px 0 #000,
+          -1.5px -1.5px 0 #000;
+      }
     </style>
 
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Boogaloo&family=Press+Start+2P&family=Raleway:wght@500;700;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;800;900&display=swap" rel="stylesheet" />
     <style>
-      .font-inter    { font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-      .font-boogaloo { font-family: "Boogaloo", cursive; }
-      .font-pixel    { font-family: "Press Start 2P", monospace; letter-spacing: .5px; }
-      .font-raisin   { font-family: "Raleway", system-ui, sans-serif; }
+      .font-inter { font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
     </style>
   </head>
   <body class="antialiased">
-    <div id="root" class="w-[var(--overlay-width)] font-inter text-white">
-      <div class="relative overflow-hidden rounded-xl bg-neutral-900/40 backdrop-blur-md ring-1 ring-white/10 shadow-[0_0_16px_rgba(255,255,255,0.06)]">
-        <div class="absolute inset-y-0 left-0 w-1.5 bg-[var(--accent)]/90"></div>
-
-        <div class="flex items-center justify-between p-4 gap-4">
-          <div class="flex flex-col items-start gap-1">
-            <div class="flex flex-row items-center gap-2 flex-wrap">
-              <a id="profileLink" href="#" target="_blank" rel="noopener" class="font-bold text-base md:text-xl pr-1 truncate underline decoration-1 underline-offset-2 text-blue-300 flex items-center">
-                <img id="avatar" src="https://kick.com/img/default-profile-pictures/default2.jpeg" alt="" class="inline-block mr-3 rounded-full w-4 h-4 md:w-8 md:h-8 object-cover" />
-                <span id="rank" class="tracking-wider mr-1">#--</span>
-                <span id="name">username</span>
-              </a>
-              <span id="pill" class="hidden ml-4 rounded-full px-2.5 py-1 text-xs md:text-sm font-extrabold ring-1"
-                    style="--tw-ring-color: color-mix(in oklab, var(--accent), transparent 70%); color: var(--accent); background-color: color-mix(in oklab, var(--accent), black 90%);">
-                Live
-              </span>
-            </div>
-          </div>
-
-          <div class="flex flex-col text-sm md:text-base font-semibold text-gray-200 pr-1 leading-[25px] text-right">
-            <p><span id="rfids">0</span> RFIDs</p>
-            <p><span id="points">0</span> points</p>
-          </div>
+    <div id="root" class="w-[var(--overlay-width)] font-inter">
+      <div class="flex items-center justify-between w-full gap-4">
+        <!-- Left: rank + username (white with black outline) -->
+        <div class="font-extrabold text-white text_black_outline_lg text-base md:text-xl tracking-wide">
+          <span id="rank">#--</span>
+          <span id="name">username</span>
+        </div>
+        <!-- Right: stats (green with black outline) -->
+        <div class="text-right leading-[22px]">
+          <p class="font-extrabold text_black_outline_lg text-[color:var(--accent)] text-sm md:text-base"><span id="rfids">0</span> RFIDs</p>
+          <p class="font-extrabold text_black_outline_lg text-[color:var(--accent)] text-sm md:text-base"><span id="points">0</span> points</p>
         </div>
       </div>
     </div>
@@ -63,52 +60,34 @@
       let fetchUrl = qs.get("fetchUrl");
       const intervalMs = Number(qs.get("interval") || 5000);
       const widthPx = Number(qs.get("w") || 730);
-      const font = qs.get("font") || "inter";
       const color = (qs.get("color") || "4fff00").replace("#","");
-      const liveParam = qs.get("live");
 
       if (!fetchUrl) {
         const slug = getSlugFromPath();
         if (slug) fetchUrl = `${location.origin}/overlay/${encodeURIComponent(slug)}?format=json`;
       }
 
+      document.documentElement.style.setProperty("--overlay-width", widthPx + "px");
+      document.documentElement.style.setProperty("--accent", "#" + color);
+
       const staticDefaults = {
         username: qs.get("name") || getSlugFromPath() || "username",
         leaderboard_ranking: qs.get("rank") || "--",
         rfids_scanned: qs.get("rfids") || "0",
         points: qs.get("points") || "0",
-        kick_slug: qs.get("kick") || qs.get("name") || getSlugFromPath() || "",
-        avatar: qs.get("avatar")
+        kick_slug: qs.get("kick") || qs.get("name") || getSlugFromPath() || ""
       };
-
-      document.documentElement.style.setProperty("--overlay-width", widthPx + "px");
-      document.documentElement.style.setProperty("--accent", "#" + color);
-      const root = document.getElementById("root");
-      root.classList.remove("font-inter","font-boogaloo","font-pixel","font-raisin");
-      root.classList.add("font-" + (["inter","boogaloo","pixel","raisin"].includes(font) ? font : "inter"));
-
-      function setLive(isLive) {
-        if (liveParam === "1") return $("pill").classList.remove("hidden");
-        if (liveParam === "0") return $("pill").classList.add("hidden");
-        if (isLive) $("pill").classList.remove("hidden"); else $("pill").classList.add("hidden");
-      }
 
       function render(data) {
         const name = data?.username ?? staticDefaults.username;
         const rank = data?.leaderboard_ranking ?? staticDefaults.leaderboard_ranking;
         const rfids = data?.rfids_scanned ?? staticDefaults.rfids_scanned;
         const points = data?.points ?? staticDefaults.points;
-        const slug = data?.kick_slug ?? staticDefaults.kick_slug;
-        const avatarUrl = data?.avatar || staticDefaults.avatar || "https://kick.com/img/default-profile-pictures/default2.jpeg";
 
         $("name").textContent = name;
         $("rank").textContent = "#" + rank;
         $("rfids").textContent = rfids;
         $("points").textContent = points;
-        $("profileLink").href = slug ? ("https://kick.com/" + slug) : "#";
-        $("avatar").src = avatarUrl;
-        $("avatar").alt = name + " avatar";
-        setLive(Boolean(data?.is_live));
       }
 
       render(staticDefaults);
