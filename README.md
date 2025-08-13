@@ -3,7 +3,7 @@
 Transparent Tailwind, CX in the Chat Dude.
 
 Just use https://cxhunt-production.up.railway.app/overlay/kickusername and slap it in OBS or whatever you prefer
-Works for everyone except Tazo, PATRICKBOO
+
 ## Endpoints
 - `GET /overlay/:kick` → Overlay HTML (transparent, glass UI)
 - `GET /overlay/:kick?format=json` → JSON passthrough from upstream
