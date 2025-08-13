@@ -10,6 +10,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors());
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, "public")));
+
 const TEMPLATE = process.env.UPSTREAM_TEMPLATE || "https://api.iceposeidon.com/overlay/{kick}";
 
 // tiny in-memory cache to avoid hammering upstream
@@ -20,6 +23,10 @@ function getCache(key) {
   if (item && Date.now() - item.t < CACHE_MS) return item.v;
 }
 function setCache(key, v) { cache.set(key, { v, t: Date.now() }); }
+
+// Keeps the last successful overlay JSON per slug so we can serve stale data
+// when upstream temporarily fails. This does not expire automatically.
+const lastGoodOverlay = new Map();
 
 async function fetchJson(url, opts = {}) {
   const cached = getCache(url);
@@ -134,8 +141,15 @@ app.get("/overlay/:kick", async (req, res) => {
         // ignore leaderboard correction errors; fall back to upstream
       }
 
-      return res.json({ ...corrected, avatar, is_live });
+      const payload = { ...corrected, avatar, is_live };
+      // Save last good responses by both the requested slug and resolved slug
+      lastGoodOverlay.set(kick, payload);
+      if (slug && slug !== kick) lastGoodOverlay.set(slug, payload);
+      return res.json(payload);
     } catch (e) {
+      // Serve last known good data for this slug if available
+      const stale = lastGoodOverlay.get(kick);
+      if (stale) return res.json({ ...stale, stale: true });
       return res.status(502).json({ error: "Upstream failed", detail: String(e) });
     }
   }
