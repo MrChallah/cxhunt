@@ -27,4 +27,4 @@ Open http://localhost:3000/overlay/yourkickname
 
 `https://<your-railway-app>.up.railway.app/overlay/kangjoel?w=730&font=pixel&color=4fff00&live=1`
 
-
+More at https://creatolay.com :)
