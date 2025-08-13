@@ -126,6 +126,20 @@ function findLeaderboardRow(leaderboard, { username, kick_slug }) {
   return { idx, row: leaderboard[idx] };
 }
 
+// Fallback: compute rank purely by points if name/slug lookup fails
+function computeRankByPoints(leaderboard, points) {
+  if (points == null) return null;
+  const want = Number(points);
+  if (!Number.isFinite(want)) return null;
+  const rows = leaderboard
+    .map((r, i) => ({ i, row: r, pts: Number(r?.points) }))
+    .filter((r) => Number.isFinite(r.pts))
+    .sort((a, b) => b.pts - a.pts);
+  const match = rows.find((r) => r.pts === want);
+  if (!match) return null;
+  return { idx: rows.indexOf(match), row: match.row };
+}
+
 // Main route: HTML or JSON based on ?format=json
 app.get("/overlay/:kick", async (req, res) => {
   const { kick } = req.params;
@@ -145,6 +159,7 @@ app.get("/overlay/:kick", async (req, res) => {
       let corrected = { ...upstream };
       try {
         const leaderboard = await fetchLeaderboard();
+        // Only override rank when the user appears in the fetched leaderboard (top 50)
         const match = findLeaderboardRow(leaderboard, {
           username: upstream?.username,
           kick_slug: upstream?.kick_slug,
