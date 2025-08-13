@@ -1,5 +1,5 @@
 # CX Hunt Overlay (Temporary)
-Example image: (Bottom Right)
+Example as seen in bottom right:
 <img width="1920" height="1080" alt="Example Image" src="https://github.com/user-attachments/assets/1fa5913c-7245-49b5-bcab-d73881fb1378" />
 
 Transparent Tailwind, CX in the Chat Dude
