@@ -7,7 +7,7 @@ Works for everyone except Tazo, PATRICKBOO
 - `GET /overlay/:kick` → Overlay HTML (transparent, glass UI)
 - `GET /overlay/:kick?format=json` → JSON passthrough from upstream
 
-Example visible in the bottom right:
+Example as seen in bottom right:
 <img width="1920" height="1080" alt="Example Image" src="https://github.com/user-attachments/assets/1fa5913c-7245-49b5-bcab-d73881fb1378" />
 
 ## Env
@@ -23,6 +23,10 @@ npm i
 npm start
 ```
 Open http://localhost:3000/overlay/yourkickname
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
 ## OBS example
 
