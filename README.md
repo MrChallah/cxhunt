@@ -1,6 +1,7 @@
 # CX Hunt Overlay (Temporary)
 
-Transparent Tailwind, CX in the Chat Dude
+Transparent Tailwind, CX in the Chat Dude.
+
 Just use https://cxhunt-production.up.railway.app/overlay/kickusername and slap it in OBS or whatever you prefer
 Works for everyone except Tazo, PATRICKBOO
 ## Endpoints
