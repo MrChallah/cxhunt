@@ -140,6 +140,37 @@ function computeRankByPoints(leaderboard, points) {
   return { idx: rows.indexOf(match), row: match.row };
 }
 
+// Resolve an overlay "upstream" payload for a given kick param, with fallbacks:
+// 1) try as-is
+// 2) try lower-case
+// 3) derive minimal payload from leaderboard (top 50)
+async function resolveUpstreamPayload(kickParam) {
+  const orig = kickParam || "";
+  const lower = orig.toLowerCase();
+  // try original
+  try { return await fetchUpstreamJson(orig); } catch {}
+  // try lowercase
+  if (lower && lower !== orig) {
+    try { return await fetchUpstreamJson(lower); } catch {}
+  }
+  // fallback to leaderboard-derived minimal payload
+  try {
+    const leaderboard = await fetchLeaderboard();
+    const fb = findLeaderboardRow(leaderboard, { username: lower, kick_slug: lower });
+    if (fb) {
+      const { idx, row } = fb;
+      return {
+        username: row?.username || orig,
+        kick_slug: row?.slug || row?.kick_slug || row?.username || lower || orig,
+        points: row?.points ?? 0,
+        rfids_scanned: row?.rfids_scanned ?? row?.rfids ?? 0,
+        leaderboard_ranking: idx + 1,
+      };
+    }
+  } catch {}
+  throw new Error("Upstream unavailable");
+}
+
 // Main route: HTML or JSON based on ?format=json
 app.get("/overlay/:kick", async (req, res) => {
   const { kick } = req.params;
@@ -147,7 +178,7 @@ app.get("/overlay/:kick", async (req, res) => {
   // Serve JSON when requested
   if ((req.query.format || "").toString().toLowerCase() === "json") {
     try {
-      const upstream = await fetchUpstreamJson(kick);
+      const upstream = await resolveUpstreamPayload(kick);
       const slug = upstream?.kick_slug || kick;
       const kickData = await fetchKickChannel(slug);
 
@@ -177,13 +208,16 @@ app.get("/overlay/:kick", async (req, res) => {
       }
 
       const payload = { ...corrected, avatar, is_live };
-      // Save last good responses by both the requested slug and resolved slug
+      // Save last good responses by requested (orig + lower) and resolved slug
       lastGoodOverlay.set(kick, payload);
+      const lower = (kick || "").toLowerCase();
+      if (lower) lastGoodOverlay.set(lower, payload);
       if (slug && slug !== kick) lastGoodOverlay.set(slug, payload);
       return res.json(payload);
     } catch (e) {
       // Serve last known good data for this slug if available
-      const stale = lastGoodOverlay.get(kick);
+      const lower = (kick || "").toLowerCase();
+      const stale = lastGoodOverlay.get(kick) || (lower ? lastGoodOverlay.get(lower) : null);
       if (stale) return res.json({ ...stale, stale: true });
       return res.status(502).json({ error: "Upstream failed", detail: String(e) });
     }
