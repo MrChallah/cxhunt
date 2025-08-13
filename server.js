@@ -18,24 +18,46 @@ const TEMPLATE = process.env.UPSTREAM_TEMPLATE || "https://api.iceposeidon.com/o
 // tiny in-memory cache to avoid hammering upstream
 const cache = new Map();
 const CACHE_MS = Number(process.env.CACHE_MS || 2000);
-function getCache(key) {
+const OVERLAY_CACHE_MS = Number(process.env.OVERLAY_CACHE_MS || 5000);
+const LEADERBOARD_CACHE_MS = Number(process.env.LEADERBOARD_CACHE_MS || 5000);
+const KICK_CACHE_MS = Number(process.env.KICK_CACHE_MS || 15000);
+
+function getCache(key, ttl = CACHE_MS) {
   const item = cache.get(key);
-  if (item && Date.now() - item.t < CACHE_MS) return item.v;
+  if (item && Date.now() - item.t < ttl) return item.v;
 }
 function setCache(key, v) { cache.set(key, { v, t: Date.now() }); }
+
+// In-flight request de-duplication so concurrent callers share one request
+const inflight = new Map();
+
+function withInflight(key, factory) {
+  if (inflight.has(key)) return inflight.get(key);
+  const p = (async () => {
+    try {
+      return await factory();
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+  inflight.set(key, p);
+  return p;
+}
 
 // Keeps the last successful overlay JSON per slug so we can serve stale data
 // when upstream temporarily fails. This does not expire automatically.
 const lastGoodOverlay = new Map();
 
-async function fetchJson(url, opts = {}) {
-  const cached = getCache(url);
+async function fetchJson(url, opts = {}, ttl = CACHE_MS) {
+  const cached = getCache(url, ttl);
   if (cached) return cached;
-  const r = await fetch(url, { headers: { "cache-control": "no-cache" }, ...opts });
-  if (!r.ok) throw new Error(`${url} -> ${r.status}`);
-  const j = await r.json();
-  setCache(url, j);
-  return j;
+  return withInflight(url, async () => {
+    const r = await fetch(url, { headers: { "cache-control": "no-cache" }, ...opts });
+    if (!r.ok) throw new Error(`${url} -> ${r.status}`);
+    const j = await r.json();
+    setCache(url, j);
+    return j;
+  });
 }
 
 // Health
@@ -45,22 +67,20 @@ app.get(["/", "/health"], (_req, res) => {
 
 async function fetchUpstreamJson(slug) {
   const url = TEMPLATE.replace("{kick}", encodeURIComponent(slug));
-  const cached = getCache(url);
-  if (cached) return cached;
-  const r = await fetch(url, { headers: { "cache-control": "no-cache" } });
-  if (!r.ok) throw new Error(`Upstream ${r.status}`);
-  const data = await r.json();
-  setCache(url, data);
-  return data;
+  return fetchJson(url, {}, OVERLAY_CACHE_MS);
 }
 
 async function fetchKickChannel(slug) {
+  const url = `https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`;
   try {
-    const r = await fetch(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`, {
-      headers: { "cache-control": "no-cache" },
+    const cached = getCache(url, KICK_CACHE_MS);
+    if (cached) return cached;
+    const j = await withInflight(url, async () => {
+      const r = await fetch(url, { headers: { "cache-control": "no-cache" } });
+      if (!r.ok) return null;
+      return await r.json();
     });
-    if (!r.ok) return null;
-    const j = await r.json();
+    if (j) setCache(url, j);
     return j;
   } catch {
     return null;
@@ -76,7 +96,7 @@ async function fetchLeaderboard() {
   ];
   for (const url of urls) {
     try {
-      const data = await fetchJson(url);
+      const data = await fetchJson(url, {}, LEADERBOARD_CACHE_MS);
       if (Array.isArray(data) && data.length) return data;
     } catch {
       // try next url
